@@ -1,119 +1,106 @@
 package tugas.p2;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
-// Kelas Generic untuk Inventaris
-class Inventory<T> {
-    private final List<T> items = new ArrayList<>();
+class Inventory {
+    private final List<Item> items = new ArrayList<>();
 
-    // Tambah Item
-    public void addItem(T item) {
+    public void addItem(Item item) {
         items.add(item);
+        resetIds();
     }
 
-    // Hapus Item
     public void removeItem(int index) {
         if (index >= 0 && index < items.size()) {
             items.remove(index);
+            resetIds();
         }
     }
 
-    // Edit Item
-    public void updateItem(int index, T newItem) {
+    public void updateItem(int index, String name, int quantity) {
         if (index >= 0 && index < items.size()) {
-            items.set(index, newItem);
+            items.get(index).setName(name);
+            items.get(index).setQuantity(quantity);
         }
     }
 
-    // Ambil Semua Item
-    public List<T> getItems() {
+    public List<Item> getItems() {
         return items;
+    }
+
+    private void resetIds() {
+        for (int i = 0; i < items.size(); i++) {
+            items.get(i).setId(i + 1);
+        }
     }
 }
 
-// Kelas Item Inventaris
 class Item {
+    private int id;
     private String name;
     private int quantity;
 
-    public Item(String name, int quantity) {
+    public Item(int id, String name, int quantity) {
+        this.id = id;
         this.name = name;
         this.quantity = quantity;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    @Override
-    public String toString() {
-        return name + " - " + quantity;
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
 }
 
-// Aplikasi GUI
 public class TugasP2 extends JFrame {
-    private final Inventory<Item> inventory = new Inventory<>();
-    private final DefaultListModel<String> listModel = new DefaultListModel<>();
-    private final JList<String> itemList = new JList<>(listModel);
+    private final Inventory inventory = new Inventory();
+    private final DefaultTableModel tableModel;
+    private final JTable table;
 
     public TugasP2() {
         setTitle("Inventaris Barang");
-        setSize(500, 400);
+        setSize(600, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // Panel Input
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 2, 5, 5));
-
-        JLabel nameLabel = new JLabel("Nama Barang:");
+        JPanel panel = new JPanel(new GridLayout(3, 2, 5, 5));
         JTextField nameField = new JTextField();
-        JLabel quantityLabel = new JLabel("Jumlah:");
         JTextField quantityField = new JTextField();
 
         JButton addButton = new JButton("Tambah");
         JButton editButton = new JButton("Edit");
         JButton deleteButton = new JButton("Hapus");
 
-        panel.add(nameLabel);
+        panel.add(new JLabel("Nama Barang:"));
         panel.add(nameField);
-        panel.add(quantityLabel);
+        panel.add(new JLabel("Jumlah:"));
         panel.add(quantityField);
-        panel.add(addButton);
-        panel.add(editButton);
-        panel.add(deleteButton);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        buttonPanel.add(addButton);
+        buttonPanel.add(editButton);
+        buttonPanel.add(deleteButton);
 
         add(panel, BorderLayout.NORTH);
-        add(new JScrollPane(itemList), BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
 
-        // Tombol Tambah
+        tableModel = new DefaultTableModel(new String[]{"ID", "Nama Barang", "Jumlah"}, 0);
+        table = new JTable(tableModel);
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
         addButton.addActionListener(e -> {
-            String name = nameField.getText();
-            int quantity;
             try {
-                quantity = Integer.parseInt(quantityField.getText());
-                Item newItem = new Item(name, quantity);
+                int quantity = Integer.parseInt(quantityField.getText());
+                Item newItem = new Item(inventory.getItems().size() + 1, nameField.getText(), quantity);
                 inventory.addItem(newItem);
-                listModel.addElement(newItem.toString());
+                tableModel.addRow(new Object[]{newItem.getId(), newItem.getName(), newItem.getQuantity()});
                 nameField.setText("");
                 quantityField.setText("");
             } catch (NumberFormatException ex) {
@@ -121,18 +108,16 @@ public class TugasP2 extends JFrame {
             }
         });
 
-        // Tombol Edit
         editButton.addActionListener(e -> {
-            int selectedIndex = itemList.getSelectedIndex();
-            if (selectedIndex != -1) {
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow != -1) {
                 String newName = JOptionPane.showInputDialog("Masukkan nama baru:");
                 String newQuantityStr = JOptionPane.showInputDialog("Masukkan jumlah baru:");
-
                 try {
                     int newQuantity = Integer.parseInt(newQuantityStr);
-                    Item updatedItem = new Item(newName, newQuantity);
-                    inventory.updateItem(selectedIndex, updatedItem);
-                    listModel.set(selectedIndex, updatedItem.toString());
+                    inventory.updateItem(selectedRow, newName, newQuantity);
+                    tableModel.setValueAt(newName, selectedRow, 1);
+                    tableModel.setValueAt(newQuantity, selectedRow, 2);
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(null, "Masukkan jumlah yang valid!", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -141,12 +126,14 @@ public class TugasP2 extends JFrame {
             }
         });
 
-        // Tombol Hapus
         deleteButton.addActionListener(e -> {
-            int selectedIndex = itemList.getSelectedIndex();
-            if (selectedIndex != -1) {
-                inventory.removeItem(selectedIndex);
-                listModel.remove(selectedIndex);
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow != -1) {
+                inventory.removeItem(selectedRow);
+                tableModel.removeRow(selectedRow);
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    tableModel.setValueAt(i + 1, i, 0);
+                }
             } else {
                 JOptionPane.showMessageDialog(null, "Pilih item yang ingin dihapus!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             }
@@ -157,4 +144,3 @@ public class TugasP2 extends JFrame {
         SwingUtilities.invokeLater(() -> new TugasP2().setVisible(true));
     }
 }
-
